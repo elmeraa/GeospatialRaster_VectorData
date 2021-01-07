@@ -1,0 +1,64 @@
+---
+title: 'The Carpentries Organization: Introduction to Geospatial Raster and Vector
+  Data with R'
+author: "Elmera Azadpour"
+date: "1/7/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(raster)
+library(rgdal)
+library(remotes)
+library(ggplot2)
+library(dplyr)
+library(here)
+```
+
+View Raster File Attributes
+```{r}
+HARV_dsmCrop_info <- capture.output(
+  GDALinfo(here("data","NEON-DS-Airborne-Remote-Sensing/HARV/DSM/HARV_dsmCrop.tif")))
+
+DSM_HARV <- 
+  raster(here("data","NEON-DS-Airborne-Remote-Sensing/HARV/DSM/HARV_dsmCrop.tif"))
+
+DSM_HARV
+
+summary(DSM_HARV)
+
+summary(DSM_HARV, maxsamp = ncell(DSM_HARV))
+```
+
+Visualize
+```{r}
+DSM_HARV_df <- as.data.frame(DSM_HARV, xy = TRUE)
+
+str(DSM_HARV_df) #structure of data
+
+ggplot() +
+    geom_raster(data = DSM_HARV_df , aes(x = x, y = y, fill = HARV_dsmCrop)) +
+    scale_fill_viridis_c() +
+    coord_quickmap()
+
+#plot(DSM_HARV) #or use base R
+```
+
+View Raster Coordinate Reference System (CRS) in R
+```{r}
+crs(DSM_HARV) #+units=m tells us that our data is in meters.
+```
+
+Calculate Raster Min and Max Values
+```{r}
+minValue(DSM_HARV)
+maxValue(DSM_HARV)
+DSM_HARV <- setMinMax(DSM_HARV)
+```
+
+Use the raster() function to import one single band from a single or multi-band raster. We can view the number of bands in a raster using the nlayers() function.
+```{r}
+nlayers(DSM_HARV)
+```
+Data and code was followed along from: https://datacarpentry.org/r-raster-vector-geospatial/
