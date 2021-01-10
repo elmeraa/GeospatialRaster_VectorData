@@ -16,6 +16,8 @@ library(dplyr)
 library(here)
 ```
 
+#### Intro to Raster Data
+
 View Raster File Attributes
 ```{r}
 HARV_dsmCrop_info <- capture.output(
@@ -62,3 +64,264 @@ Use the raster() function to import one single band from a single or multi-band 
 nlayers(DSM_HARV)
 ```
 Data and code was followed along from: https://datacarpentry.org/r-raster-vector-geospatial/
+
+#### Plot Raster Data 
+some wrangling, 'dplyr' mutate() function combined with cut() to split the data into 3 bins.
+```{r}
+DSM_HARV_df <- DSM_HARV_df %>%
+                mutate(fct_elevation = cut(HARV_dsmCrop, breaks = 3))
+
+ggplot() +
+    geom_bar(data = DSM_HARV_df, aes(fct_elevation))
+```
+
+Looking at data
+```{r}
+unique(DSM_HARV_df$fct_elevation)
+```
+
+
+```{r}
+## get the count of values in each group
+DSM_HARV_df %>%
+        group_by(fct_elevation) %>%
+        count()
+
+custom_bins <- c(300, 350, 400, 450)
+
+## Lets round the cutoff values so that we have groups for the ranges of 301–350 m, 351–400 m, and 401–450 m.
+DSM_HARV_df <- DSM_HARV_df %>%
+  mutate(fct_elevation_2 = cut(HARV_dsmCrop, breaks = custom_bins))
+
+unique(DSM_HARV_df$fct_elevation_2)
+```
+
+```{r}
+## now lets plot
+ggplot() +
+  geom_bar(data = DSM_HARV_df, aes(fct_elevation_2))
+```
+
+```{r}
+## same idea as above
+DSM_HARV_df %>%
+  group_by(fct_elevation_2) %>%
+  count()
+```
+plot with groups being a different color
+```{r}
+ggplot() +
+  geom_raster(data = DSM_HARV_df , aes(x = x, y = y, fill = fct_elevation_2)) + 
+  coord_quickmap()
+
+terrain.colors(3)
+
+ggplot() +
+ geom_raster(data = DSM_HARV_df , aes(x = x, y = y,
+                                      fill = fct_elevation_2)) + 
+    scale_fill_manual(values = terrain.colors(3)) + 
+    coord_quickmap()
+```
+
+### More plot formatting
+```{r}
+my_col <- terrain.colors(3)
+
+ggplot() +
+ geom_raster(data = DSM_HARV_df , aes(x = x, y = y,
+                                      fill = fct_elevation_2)) + 
+    scale_fill_manual(values = my_col, name = "Elevation") +
+    theme(axis.title = element_blank()) + 
+    coord_quickmap()
+```
+
+### Create a plot of the Harvard Forest Digital Surface Model (DSM):
+```{r}
+DSM_HARV_df <- DSM_HARV_df  %>%
+               mutate(fct_elevation_6 = cut(HARV_dsmCrop, breaks = 6)) 
+
+ y_col <- terrain.colors(6)
+
+ggplot() +
+    geom_raster(data = DSM_HARV_df , aes(x = x, y = y,
+                                      fill = fct_elevation_6)) + 
+    scale_fill_manual(values = my_col, name = "Elevation") + 
+    ggtitle("Classified Elevation Map - NEON Harvard Forest Field Site") +
+    xlab("UTM Westing Coordinate (m)") +
+    ylab("UTM Northing Coordinate (m)") + 
+    coord_quickmap()
+```
+
+### Let's layer some rasters now:
+```{r}
+DSM_hill_HARV <-
+  raster(here("data","NEON-DS-Airborne-Remote-Sensing/HARV/DSM/HARV_DSMhill.tif"))
+
+DSM_hill_HARV
+
+## convert it to dataframe so we can plot using ggplot
+DSM_hill_HARV_df <- as.data.frame(DSM_hill_HARV, xy = TRUE) 
+
+str(DSM_hill_HARV_df)
+```
+
+Now we can plot the hillshade data:
+```{r}
+ggplot() +
+  geom_raster(data = DSM_hill_HARV_df,
+              aes(x = x, y = y, alpha = HARV_DSMhill)) + 
+  scale_alpha(range =  c(0.15, 0.65), guide = "none") + 
+  coord_quickmap()
+```
+
+Let’s overlay DSM_HARV on top of the hill_HARV using geom_raster() function
+```{r}
+ggplot() +
+  geom_raster(data = DSM_HARV_df , 
+              aes(x = x, y = y, 
+                  fill = HARV_dsmCrop)) + 
+  geom_raster(data = DSM_hill_HARV_df, 
+              aes(x = x, y = y, 
+                  alpha = HARV_DSMhill)) +  
+  scale_fill_viridis_c() +  
+  scale_alpha(range = c(0.15, 0.65), guide = "none") +  
+  ggtitle("Elevation with hillshade") +
+  coord_quickmap()
+```
+### Use the files in the NEON_RemoteSensing/SJER/ directory to create a Digital Terrain Model map and Digital Surface Model map of the San Joaquin Experimental Range field site.
+```{r}
+# CREATE DSM MAPS
+
+# import DSM data
+DSM_SJER <- raster(here("data","NEON-DS-Airborne-Remote-Sensing/SJER/DSM/SJER_dsmCrop.tif"))
+# convert to a df for plotting
+DSM_SJER_df <- as.data.frame(DSM_SJER, xy = TRUE)
+
+# import DSM hillshade
+DSM_hill_SJER <- raster(here("data","NEON-DS-Airborne-Remote-Sensing/SJER/DSM/SJER_dsmHill.tif"))
+# convert to a df for plotting
+DSM_hill_SJER_df <- as.data.frame(DSM_hill_SJER, xy = TRUE)
+
+# Build Plot
+ggplot() +
+    geom_raster(data = DSM_SJER_df , 
+                aes(x = x, y = y, 
+                     fill = SJER_dsmCrop,
+                     alpha = 0.8)
+                ) + 
+    geom_raster(data = DSM_hill_SJER_df, 
+                aes(x = x, y = y, 
+                  alpha = SJER_dsmHill)
+                ) +
+    scale_fill_viridis_c() +
+    guides(fill = guide_colorbar()) +
+    scale_alpha(range = c(0.4, 0.7), guide = "none") +
+    # remove grey background and grid lines
+    theme_bw() + 
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank()) +
+    xlab("UTM Westing Coordinate (m)") +
+    ylab("UTM Northing Coordinate (m)") +
+    ggtitle("DSM with Hillshade") +
+    coord_quickmap()
+```
+### Reproject Raster Data: How do I work with raster data sets that are in different projections?
+
+import data
+```{r}
+DTM_HARV <- raster(here("data","NEON-DS-Airborne-Remote-Sensing/HARV/DTM/HARV_dtmCrop.tif"))
+
+DTM_hill_HARV <- raster(here("data","NEON-DS-Airborne-Remote-Sensing/HARV/DTM/HARV_DTMhill_WGS84.tif"))
+```
+
+Convert to dataframe for plotting in ggplot
+```{r}
+DTM_HARV_df <- as.data.frame(DTM_HARV, xy = TRUE)
+
+DTM_hill_HARV_df <- as.data.frame(DTM_hill_HARV, xy = TRUE)
+
+ggplot() +
+     geom_raster(data = DTM_HARV_df , 
+                 aes(x = x, y = y, 
+                  fill = HARV_dtmCrop)) + 
+     geom_raster(data = DTM_hill_HARV_df, 
+                 aes(x = x, y = y, 
+                   alpha = HARV_DTMhill_WGS84)) +
+     scale_fill_gradientn(name = "Elevation", colors = terrain.colors(10)) + 
+     coord_quickmap()
+```
+
+Hmm, let’s try to plot the DTM on its own to make sure there are data there.
+```{r}
+ggplot() +
+geom_raster(data = DTM_HARV_df,
+    aes(x = x, y = y,
+    fill = HARV_dtmCrop)) +
+scale_fill_gradientn(name = "Elevation", colors = terrain.colors(10)) + 
+coord_quickmap()
+
+# Our DTM seems to contain data and plots just fine.
+# Next lets plot the DTM Hillshade on its own to see whether everything is okay.
+ggplot() +
+geom_raster(data = DTM_hill_HARV_df,
+    aes(x = x, y = y,
+    alpha = HARV_DTMhill_WGS84)) + 
+    coord_quickmap()
+
+# If we look at the axes, we can see that the projections of the two rasters are different. When this is the case, ggplot won’t render the image. It won’t even throw an error message to tell you something has gone wrong. We can look at Coordinate Reference Systems (CRSs) of the DTM and the hillshade data to see how they differ.
+```
+
+### Let's view the CRS of each the datasets
+```{r}
+crs(DTM_HARV)
+crs(DTM_hill_HARV)
+# DTM_HARV is in the UTM projection, with units of meters. DTM_hill_HARV is in Geographic WGS84 - which is represented by latitude and longitude values.
+# We need to reproject (or change the projection of) DTM_hill_HARV into the UTM CRS. Alternatively, we could reproject DTM_HARV into WGS84.
+```
+
+### Lets do some reprojection
+```{r}
+# reproject our DTM_hill_HARV raster data to match the DTM_HARV raster CRS
+DTM_hill_UTMZ18N_HARV <- projectRaster(DTM_hill_HARV,
+                                       crs = crs(DTM_HARV))
+
+# bow we can compare
+crs(DTM_hill_UTMZ18N_HARV)
+crs(DTM_hill_HARV)
+extent(DTM_hill_UTMZ18N_HARV)
+extent(DTM_hill_HARV)
+
+# Notice in the output above that the crs() of DTM_hill_UTMZ18N_HARV is now UTM. However, the extent values of DTM_hillUTMZ18N_HARV are different from DTM_hill_HARV. This is because the extent for DTM_hill_UTMZ18N_HARV is in UTMs so the extent is in meters. The extent for DTM_hill_HARV is in lat/long so the extent is expressed in decimal degrees.
+```
+
+### Dealing with Raster Resolution
+```{r}
+res(DTM_hill_UTMZ18N_HARV)
+res(DTM_HARV)
+
+# These two resolutions are different, but they’re representing the same data. We can tell R to force our newly reprojected raster to be 1m x 1m resolution by adding a line of code res=1 within the projectRaster() function.
+
+DTM_hill_UTMZ18N_HARV <- projectRaster(DTM_hill_HARV,
+                                         crs = crs(DTM_HARV),
+                                         res = res(DTM_HARV)) 
+
+# Now both our resolutions and our CRSs match, so we can plot these two data sets together. Let’s double-check our resolution to be sure:
+res(DTM_hill_UTMZ18N_HARV)
+res(DTM_HARV)
+
+#For plotting with ggplot(), we will need to create a dataframe from our newly reprojected raster.
+DTM_hill_HARV_2_df <- as.data.frame(DTM_hill_UTMZ18N_HARV, xy = TRUE)
+```
+
+### Now we can create a plot of this data
+```{r}
+ggplot() +
+     geom_raster(data = DTM_HARV_df , 
+                 aes(x = x, y = y, 
+                  fill = HARV_dtmCrop)) + 
+     geom_raster(data = DTM_hill_HARV_2_df, 
+                 aes(x = x, y = y, 
+                   alpha = HARV_DTMhill_WGS84)) +
+     scale_fill_gradientn(name = "Elevation", colors = terrain.colors(10)) + 
+     coord_quickmap()
+```
